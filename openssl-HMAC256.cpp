@@ -15,7 +15,7 @@ struct HMAC256{
 	~HMAC256(){
 		HMAC_CTX_free(ctx);
 	}
-	void compute(string_view msg){
+	const char* compute(string_view msg){
 		HMAC_Init_ex(ctx,0,0,0,0);
 		HMAC_Update(ctx,(const unsigned char*)msg.data(),msg.size());
 		HMAC_Final(ctx,(unsigned char*)result,&_sz);
@@ -23,6 +23,7 @@ struct HMAC256{
 			result[i<<1|1]="0123456789abcdef"[result[i]&0xf];
 			result[i<<1]="0123456789abcdef"[(unsigned char)result[i]>>4];
 		}
+		return result;
 	}
 };
 int main(){
