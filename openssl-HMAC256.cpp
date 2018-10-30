@@ -4,13 +4,12 @@
 using namespace std;
 struct HMAC256{
 	HMAC_CTX*ctx;
-	const string_view key;
 	char result[65];//in hex
 	unsigned _sz;
-	HMAC256(string_view k):key{k}{
+	HMAC256(string_view k){
 		result[64]=0;
 		ctx=HMAC_CTX_new();
-		HMAC_Init_ex(ctx,key.data(),key.size(),EVP_sha256(),0);
+		HMAC_Init_ex(ctx,k.data(),k.size(),EVP_sha256(),0);
 	}
 	~HMAC256(){
 		HMAC_CTX_free(ctx);
