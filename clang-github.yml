@@ -1,0 +1,74 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+defaults:
+  run:
+    working-directory: build
+env:
+  CC: clang-9 -w
+  CXX: clang-9 -w -stdlib=libc++ -lc++abi -lc++ -lc++abi  -lstdc++
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: install
+      run: sudo apt install -y libc++-9-dev libc++abi-9-dev
+    - name: ls
+      run: pwd&&ls
+    - name: configure
+      run: cmake -DLLVM_ENABLE_PROJECTS="clang;compiler-rt" -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -G "Unix Makefiles" ../llvm
+    - name: make
+      run: make -j2
+    - name: test
+      run: make check-clang -j2
+    - name: compress
+      run: |
+        tar -czf build.tar.gz build
+        tar -czf bin.tar.gz build/bin
+        tar -czf lib.tar.gz build/lib
+      working-directory: .
+#  Not using artifact because it double compresses files and is not available to anonymous users
+#    - uses: actions/upload-artifact@v2
+#      with:
+#        name: build-artifact
+#        path: build.tar.gz
+    - name: Get short SHA
+      id: commit
+      run: echo "::set-output name=commit::$(echo ${GITHUB_SHA} | cut -c1-8)"
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{  steps.commit.outputs.commit }}
+        release_name: Release ${{ github.sha }} 
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: lib.tar.gz
+        asset_name: lib.tar.gz
+        asset_content_type: application/gzip
+    
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: bin.tar.gz
+        asset_name: bin.tar.gz
+        asset_content_type: application/gzip
