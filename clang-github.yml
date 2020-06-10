@@ -7,10 +7,10 @@ on:
 #    branches: [ master ]
 defaults:
   run:
-    working-directory: build
+    working-directory: /tmp/llvm-project/build
 env:
-  CC: clang-9 -w
-  CXX: clang-9 -w -stdlib=libc++ -lc++abi -lc++ -lc++abi  -lstdc++
+  CC: clang-10 -w
+  CXX: clang-10 -w -stdlib=libc++ -lc++abi -lc++ -lc++abi  -lstdc++
 jobs:
   build:
 
@@ -18,22 +18,21 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: install
-      run: sudo apt install -y libc++-9-dev libc++abi-9-dev
     - name: ls
-      run: pwd&&ls
+      run: ls /home/runner/work/llvm-project;mv /home/runner/work/llvm-project/llvm-project /tmp;pwd&&ls&&which cmake
+      working-directory: .
+    - name: install
+      run: sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"&&sudo apt install -y libc++-10-dev libc++abi-10-dev cmake;sudo rm $(which cmake)
     - name: configure
-      run: cmake -DLLVM_ENABLE_PROJECTS="clang;compiler-rt" -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=X86 -G "Unix Makefiles" ../llvm
+      run: cmake -DLLVM_ENABLE_PROJECTS="clang;compiler-rt" -DCMAKE_BUILD_TYPE=Release -DCMAKE_USE_RELATIVE_PATHS=1 -DLLVM_TARGETS_TO_BUILD=X86 -G "Unix Makefiles" ../llvm
     - name: make
       run: make -j2
-    - name: test
-      run: make check-clang -j2
     - name: compress
       run: |
-        tar -czf build.tar.gz build
+        tar -czf /tmp/llvm-project.tar.gz .
         tar -czf bin.tar.gz build/bin
         tar -czf lib.tar.gz build/lib
-      working-directory: .
+      working-directory: /tmp/llvm-project/
 #  Not using artifact because it double compresses files and is not available to anonymous users
 #    - uses: actions/upload-artifact@v2
 #      with:
@@ -72,3 +71,14 @@ jobs:
         asset_path: bin.tar.gz
         asset_name: bin.tar.gz
         asset_content_type: application/gzip
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: /tmp/llvm-project.tar.gz
+        asset_name: llvm-project.tar.gz
+        asset_content_type: application/gzip
+    - name: test
+      run: make check-clang -j2 ||true
